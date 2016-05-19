@@ -26,8 +26,7 @@ default rel
 %define SF_MASK 00000080h
 %define DF_MASK 00000400h
 %define OF_MASK 00000800h
-
-
+;; more for flag registry
 ;;
 ;; Linux C doesn't put underscores on labels
 ;;
@@ -49,7 +48,6 @@ default rel
 %endif
 
 
-
 %ifdef OBJ_TYPE
 segment .data public align=4 class=data use32
 %else
@@ -61,22 +59,22 @@ segment .data
 
 reg_format:
   db  "Register Dump # %d", NL
-  db  "RAX = %.16X RBX = %.16X RCX = %.16X RDX = %.16X", NL
-  db  "RSI = %.16X RDI = %.16X RBP = %.16X RSP = %.16X", NL
-  db  "R8  = %.16X R9  = %.16X R10 = %.16X R11 = %.16X", NL
-  db  "R12 = %.16X R13 = %.16X R14 = %.16X R15 = %.16X", NL
-  db  "RIP = %.16X FLAGS = %.4X %s %s %s %s %s %s %s", NL
+  db  "rax = %016llx rbx = %016llx rcx = %016llx rdx = %016llx", NL
+  db  "rsi = %016llx rdi = %016llx rbp = %016llx rsp = %016llx", NL
+  db  "r8  = %016llx r9  = %016llx r10 = %016llx r11 = %016llx", NL
+  db  "r12 = %016llx r13 = %016llx r14 = %016llx r15 = %016llx", NL
+  db  "rip = %016llx flags = %04llx %s %s %s %s %s %s %s", NL
   db  0
 
 ;; flags
+  unset_flag      db	"  ", 0
   carry_flag      db  "CF", 0
+  parity_flag     db	"PF", 0
+  aux_carry_flag  db	"AF", 0
   zero_flag       db  "ZF", 0
   sign_flag       db  "SF", 0
-  parity_flag     db	"PF", 0
-  overflow_flag   db	"OF", 0
   dir_flag        db	"DF", 0
-  aux_carry_flag  db	"AF", 0
-  unset_flag      db	"  ", 0
+  overflow_flag   db	"OF", 0
 
   mem_format      db  "Memory Dump # %d Address = %.16X", NL, 0
   mem_formatd     db  "%.8X ", 0
@@ -188,7 +186,7 @@ print_nl:
   ret
 
 sub_dump_regs:
-  enter   0x40, 0
+  enter   0x50, 0
 
   mov     [rbp-0x08], rax
 
@@ -202,64 +200,69 @@ sub_dump_regs:
   mov     [rbp-0x28], rdx
   mov     [rbp-0x30], rcx
   mov     [rbp-0x38], r8
-  mov     [rbp-0x40], r9        ; more to save, but ingored here, hope it's ok
+  mov     [rbp-0x40], r9
+  mov     [rbp-0x48], r10
+  mov     [rbp-0x50], r11
+  ; more(xmms, sts, x87s, cs, fs, gs etc) to save, but ingored here, hope it's ok
 
+;; left to right order
   mov     rdi, reg_format       ;
   mov     rsi, qword [rbp+0x18] ; #
   mov     rdx, qword [rbp-0x08] ; rax
   mov     rcx, rbx              ; rbx
   mov      r8, qword [rbp-0x30] ; rcx
   mov      r9, qword [rbp-0x28] ; rdx
-  push    qword [rbp-0x20]      ; rsi
-  push    qword [rbp-0x18]      ; rdi
-  push    qword [rbp]           ; rbp
-  lea     rax, [rbp+0x20]       ; remove previous rbp, return address, two qword of #
-  push    rax                   ; rsp
-  push    qword [rbp-0x38]      ; r8
-  push    qword [rbp-0x40]      ; r9
-  push    r10                   ; r10
-  push    r11                   ; r11
-  push    r12                   ; r12
-  push    r13                   ; r13
-  push    r14                   ; r14
-  push    r15                   ; r15
-  push    qword [rbp+0x08]      ; rip: return address, TODO: maybe should minus two push qword instruction size
-  push    qword [rbp-0x10]      ; rflags
+
+;; right to left order, x64 abi p20
+  push    qword 0                  ; align to 16
 
 ;; check_flag flag_mask flag_string
 %macro check_flag 2
-  test    dword [rbp-0x08], %1
+  test    qword [rbp-0x10], %1
   jz      %%flag_off
   mov     rax, %2
   jmp     %%push_result
-  %%flag_off:
+%%flag_off:
   mov     rax, unset_flag
-  %%push_result:
+%%push_result:
   push    rax
 %endmacro
 
   check_flag CF_MASK, carry_flag
-
   check_flag PF_MASK, parity_flag
-
   check_flag AF_MASK, aux_carry_flag
-
   check_flag ZF_MASK, zero_flag
-
   check_flag SF_MASK, sign_flag
-
   check_flag DF_MASK, dir_flag
-
   check_flag OF_MASK, overflow_flag
 
 %unmacro check_flag 2
 
-  push qword 0                  ; align to 16
+  push    qword [rbp-0x10]      ; rflags
+  mov     rax, [rbp+0x08]       ; return address
+  sub     rax, 5+2+2            ; 5(callq), 2(pushq), 2(pushq)
+  push    rax                   ; rip
+  push    r15                   ; r15
+  push    r14                   ; r14
+  push    r13                   ; r13
+  push    r12                   ; r12
+  push    r11                   ; r11
+  push    r10                   ; r10
+  push    qword [rbp-0x40]      ; r9
+  push    qword [rbp-0x38]      ; r8
+  lea     rax, [rbp+0x20]       ; remove previous rbp, return address, two qword of #
+  push    rax                   ; rsp
+  push    qword [rbp]           ; rbp
+  push    qword [rbp-0x18]      ; rdi
+  push    qword [rbp-0x20]      ; rsi
 
-  call	_printf
+  mov     al, 0
+  call	  _printf
 
   add	    rsp, 0xb0             ; push 22 word
 
+  mov     r11, [rbp-0x50]
+  mov     r10, [rbp-0x48]
   mov     r9 , [rbp-0x40]
   mov     r8 , [rbp-0x38]
   mov     rcx, [rbp-0x30]
