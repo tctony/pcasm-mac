@@ -74,9 +74,8 @@ _asm_main:
   mov     ebx, eax          ; ebx = eax
 
   dump_regs 1                   ; dump out register values
-  ; TODO
-  ; mov     rcx, outmsg1
-  ; dump_mem  2, rcx, 1    ; dump out memory
+  dump_mem  1, outmsg1, 4       ; dump out memory
+
 ;;
 ;; next print out result message as series of steps
 ;;

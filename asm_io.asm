@@ -59,11 +59,11 @@ segment .data
 
 reg_format:
   db  "Register Dump # %d", NL
-  db  "rax = %016llx rbx = %016llx rcx = %016llx rdx = %016llx", NL
-  db  "rsi = %016llx rdi = %016llx rbp = %016llx rsp = %016llx", NL
-  db  "r8  = %016llx r9  = %016llx r10 = %016llx r11 = %016llx", NL
-  db  "r12 = %016llx r13 = %016llx r14 = %016llx r15 = %016llx", NL
-  db  "rip = %016llx flags = %04llx %s %s %s %s %s %s %s", NL
+  db  "rax = 0x%016llx rbx = 0x%016llx rcx = 0x%016llx rdx = 0x%016llx", NL
+  db  "rsi = 0x%016llx rdi = 0x%016llx rbp = 0x%016llx rsp = 0x%016llx", NL
+  db  "r8  = 0x%016llx r9  = 0x%016llx r10 = 0x%016llx r11 = 0x%016llx", NL
+  db  "r12 = 0x%016llx r13 = 0x%016llx r14 = 0x%016llx r15 = 0x%016llx", NL
+  db  "rip = 0x%016llx flags = %04llx %s %s %s %s %s %s %s", NL
   db  0
 
 ;; flags
@@ -76,9 +76,9 @@ reg_format:
   dir_flag        db	"DF", 0
   overflow_flag   db	"OF", 0
 
-  mem_format      db  "Memory Dump # %d Address = %.16X", NL, 0
-  mem_formatd     db  "%.8X ", 0
-  mem_formatb     db  "%.2X ", 0
+  mem_format_header  db  "Memory Dump # %d Address = 0x%016llx", NL, 0
+  mem_format_addr    db  "0x%016llx: ", 0
+  mem_format_hex     db  "%02x ", 0
 
 stack_format:
   db  "Stack Dump # %d", NL
@@ -275,72 +275,82 @@ sub_dump_regs:
   leave
   ret
 
-  ; TODO
-; sub_dump_mem:
-;   enter	0,0
-;   pusha
-;   pushf
+sub_dump_mem:
+  enter	  0, 0      ; didn't save regs here, so context may changed after return
 
-;   push	dword [ebp+12]
-;   push	dword [ebp+16]
-;   push	dword mem_format1
-;   call	_printf
-;   add	esp, 12
-;   mov	esi, [ebp+12]      ; address
-;   and	esi, 0FFFFFFF0h    ; move to start of paragraph
-;   mov	ecx, [ebp+8]
-;   inc	ecx
-; mem_outer_loop:
-;   push	ecx
-;   push	esi
-;   push	dword mem_formatd
-;   call	_printf
-;   add	esp, 8
+  mov     rdi, mem_format_header
+  mov     rsi, [rbp+0x20]       ; number
+  mov     rdx, [rbp+0x18]       ; address
+  call	  _printf
 
-;   xor	ebx, ebx
-; mem_hex_loop:
-;   xor	eax, eax
-;   mov	al, [esi + ebx]
-;   push	eax
-;   push	dword mem_formatb
-;   call	_printf
-;   add	esp, 8
-;   inc	ebx
-;   cmp	ebx, 16
-;   jl	mem_hex_loop
+  mov     rsi, [rbp+0x18]
+  and     rsi, 0xfffffffffffffff0 ; move to start of paragraph
+  mov     rcx, [rbp+0x10]         ; paragraphs-count
 
-;   mov	eax, '"'
-;   call	print_char
-;   xor	ebx, ebx
-; mem_char_loop:
-;   xor	eax, eax
-;   mov	al, [esi+ebx]
-;   cmp	al, 32
-;   jl	non_printable
-;   cmp	al, 126
-;   jg	non_printable
-;   jmp	short mem_char_loop_continue
-; non_printable:
-;   mov	eax, '?'
-; mem_char_loop_continue:
-;   call	print_char
+paragraph_loop:
+  push    rcx
+  push    rsi
+  mov     rdi, mem_format_addr
+  call    _printf
 
-;   inc	ebx
-;   cmp	ebx, 16
-;   jl	mem_char_loop
+  xor     rcx, rcx
+mem_hex_loop:
+  push    rax
+  push    rcx
+  mov     rdi, mem_format_hex
+  mov     rax, [rsp+0x10]
+  xor     rsi, rsi
+  mov     sil, [rax+rcx]
+  call	  _printf
+  pop     rcx
+  pop     rax
+  inc     rcx
+  cmp	    rcx, 0x10
+  jl	    mem_hex_loop
 
-;   mov	eax, '"'
-;   call	print_char
-;   call	print_nl
+  mov	    rax, '"'
+  call	  print_char
 
-;   add	esi, 16
-;   pop	ecx
-;   loop	mem_outer_loop
+  xor	    rcx, rcx
+mem_char_loop:
+  push    rax
+  push    rcx
+  xor	    rax, rax
+  mov     rsi, [rsp+0x10]
+  mov	    al, [rsi+rcx]
+  test    al, al
+  jz      null_char
+  cmp	    al, 32
+  jl	    non_printable
+  cmp	    al, 126
+  jg	    non_printable
+  jmp	    mem_char_loop_continue
+null_char:
+  mov     al, '.'
+  jmp	    mem_char_loop_continue
+non_printable:
+  mov	    al, '?'
+mem_char_loop_continue:
+  call	  print_char
+  pop     rcx
+  pop     rax
+  inc     rcx
+  cmp     rcx, 0x10
+  jl	    mem_char_loop
 
-;   popf
-;   popa
-;   leave
-;   ret	12
+  mov	    rax, '"'
+  call	  print_char
+
+  call	  print_nl
+
+  pop     rsi
+  add     rsi, 0x10                 ; next paragraph
+  pop     rcx
+  dec     rcx
+  jnz	    paragraph_loop
+
+  leave
+  ret
 
 ;; function sub_dump_math
 ;;   prints out state of math coprocessor without modifying the coprocessor

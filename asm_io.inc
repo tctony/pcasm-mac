@@ -5,6 +5,7 @@ extern read_char, print_char
 extern print_string, print_nl
 extern sub_dump_regs, sub_dump_mem, sub_dump_math, sub_dump_stack
 
+;; usage: dump_regs number
 %macro  dump_regs 1
   push qword %1
   push qword %1                 ; align to 16
@@ -12,12 +13,16 @@ extern sub_dump_regs, sub_dump_mem, sub_dump_math, sub_dump_stack
   add  rsp, 0x10
 %endmacro
 
-;; usage: dump_mem label, start-address, # paragraphs
-%macro  dump_mem 3
-  push    dword %1
-  push    qword %2
-  push    dword %3
+;; usage: dump_mem number, start-address, paragraphs-count(optional, default 2)
+%macro  dump_mem 2-3 2
+  push    rax
+  push    qword %1
+  mov     rax, %2
+  push    rax
+  push    qword %3
   call    sub_dump_mem
+  add     rsp, 0x18
+  pop     rax
 %endmacro
 
 %macro	dump_math 1
