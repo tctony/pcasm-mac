@@ -469,8 +469,7 @@ stack_line_loop:
   push    rdx
 
   mov     rdi, stack_line_format
-  not     rsi
-  add     rsi, 1                ; rsi = -rsi
+  neg     rsi
   add     rsi, [rbp+0x28]
   ; rdx
   mov     rcx, [rdx]
