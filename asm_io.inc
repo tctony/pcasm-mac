@@ -26,13 +26,17 @@ extern sub_dump_regs, sub_dump_mem, sub_dump_math, sub_dump_stack
 %endmacro
 
 %macro	dump_math 1
-  push    dword %1
-  call    sub_dump_math
+;; TODO
+  ; push    dword %1
+  ; call    sub_dump_math
 %endmacro
 
-%macro  dump_stack 3
-  push    dword %3
-  push    dword %2
-  push    dword %1
+;; usage: dump_stack number, paragraphs-count above rbp(optional, default 1), paragraphs-count below rbp(optional, default 1)
+%macro  dump_stack 1-3 1, 2
+  push    qword %3
+  push    qword %2
+  push    qword %1
+  push    qword %1              ; align to 16
   call    sub_dump_stack
+  add     rsp, 0x20
 %endmacro

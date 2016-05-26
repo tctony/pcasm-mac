@@ -82,9 +82,9 @@ reg_format:
 
 stack_format:
   db  "Stack Dump # %d", NL
-  db  "RBP = %.16X RSP = %.16X", NL, 0
+  db  "RBP = %016llx RSP = %016llx", NL, 0
 
-  stack_line_format   db  "%+4d  %.8X  %.8X", NL, 0
+  stack_line_format   db  "%+4d 0x%016llx: 0x%016llx  0x%016llx", NL, 0
 
 ;; TODO
 ; math_format1:
@@ -448,50 +448,43 @@ mem_char_loop_continue:
 ;   leave
 ;   ret	4
 
-;; TODO
-; sub_dump_stack:
-;   enter   0,0
-;   pusha
-;   pushf
+sub_dump_stack:
+  enter   0, 0
 
-;   lea     eax, [ebp+20]
-;   push    eax             ; original ESP
-;   push    dword [ebp]     ; original EBP
-;   push	dword [ebp+8]   ; # of dump
-;   push	dword stack_format
-;   call	_printf
-;   add	esp, 16
+  mov     rdi, stack_format
+  mov     rsi, [rbp+0x10]       ; # of dump
+  mov     rdx, [rbp]            ; original rbp
+  lea     rcx, [rbp+0x30]       ; original rsp
+  call	  _printf
 
-;   mov	ebx, [ebp]	; ebx = original ebp
-;   mov	eax, [ebp+16]   ; eax = # dwords above ebp
-;   shl	eax, 2          ; eax *= 4
-;   add	ebx, eax	; ebx = & highest dword in stack to display
-;   mov	edx, [ebp+16]
-;   mov	ecx, edx
-;   add	ecx, [ebp+12]
-;   inc	ecx		; ecx = # of dwords to display
+  mov	    rdx, [rbp]
+  mov	    rax, [rbp+0x20]       ; rax = # paras above rbp
+  shl	    rax, 4                ; rax *= 16
+  add	    rdx, rax              ; rdx = & highest paragraph in stack to display
+  mov	    rsi, [rbp+0x28]       ; rdx = # paras below rbp
+  add	    rsi, [rbp+0x20]       ; rcx = # of paras to dump
 
-; stack_line_loop:
-;   push	edx
-;   push	ecx		; save ecx & edx
+stack_line_loop:
+  push    rsi
+  push    rdx
 
-;   push	dword [ebx]	; value on stack
-;   push	ebx		; address of value on stack
-;   mov	eax, edx
-;   sal	eax, 2		; eax = 4*edx
-;   push	eax		; offset from ebp
-;   push	dword stack_line_format
-;   call	_printf
-;   add	esp, 16
+  mov     rdi, stack_line_format
+  not     rsi
+  add     rsi, 1                ; rsi = -rsi
+  add     rsi, [rbp+0x28]
+  ; rdx
+  mov     rcx, [rdx]
+  mov     rax, rdx
+  add     rax, 0x08
+  mov      r8, [rax]
+  call    _printf
 
-;   pop	ecx
-;   pop	edx
+  pop	    rdx
+  pop	    rsi
 
-;   sub	ebx, 4
-;   dec	edx
-;   loop	stack_line_loop
+  sub     rdx, 0x10
+  dec     rsi
+  jnz     stack_line_loop
 
-;   popf
-;   popa
-;   leave
-;   ret     12
+  leave
+  ret
