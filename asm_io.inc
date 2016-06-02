@@ -25,11 +25,11 @@ extern sub_dump_regs, sub_dump_mem, sub_dump_math, sub_dump_stack
   pop     rax
 %endmacro
 
-%macro	dump_math 1
-;; TODO
-  ; push    dword %1
-  ; call    sub_dump_math
-%endmacro
+; %macro	dump_math 1
+; ;; TODO
+;   ; push    dword %1
+;   ; call    sub_dump_math
+; %endmacro
 
 ;; usage: dump_stack number, paragraphs-count above rbp(optional, default 1), paragraphs-count below rbp(optional, default 1)
 %macro  dump_stack 1-3 1, 2
