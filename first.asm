@@ -96,7 +96,7 @@ _asm_main:
   call    print_int         ; print out sum (ebx)
   call    print_nl          ; print new-line
 
-  mov     rax, 0            ; return back to C
+  mov     eax, 0            ; return back to C
   mov     rbx, [rbp-0x08]
   leave
   ret
