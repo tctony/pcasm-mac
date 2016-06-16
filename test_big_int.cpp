@@ -14,8 +14,8 @@ int main()
 {
   try {
     //           12345678901234567890
-    Big_int b(5,"8000000000000a00b");
     Big_int a(5,"80000000000010230");
+    Big_int b(5,"8000000000000a00b");
     Big_int c = a + b;
     cout << a << " + " << b << " = " << c << endl;
     for( int i=0; i < 2; i++ ) {
