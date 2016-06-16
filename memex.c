@@ -11,7 +11,7 @@
  * prototypes
  */
 
-void PRE_CDECL asm_copy( void *, 
+void PRE_CDECL asm_copy( void *,
                          const void *,
                          unsigned ) POST_CDECL;
 
